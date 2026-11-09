@@ -21,8 +21,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build plugin
         working-directory: paper-plugin
-        run: gradle shadowJar --no-daemon
+        run: gradle jar --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: RexSpielCompanions-PaperMC
-          path: paper-plugin/build/libs/*-all.jar
+          path: paper-plugin/build/libs/*.jar

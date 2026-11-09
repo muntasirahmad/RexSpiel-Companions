@@ -23,7 +23,7 @@ cd paper-plugin
 gradle shadowJar
 ```
 
-For a downloadable JAR without local build tools, open **Actions**, run **Build Paper plugin**, then download the `RexSpielCompanions-PaperMC` artifact. Put the resulting `*-all.jar` in the Aternos `plugins` folder.
+For a downloadable JAR without local build tools, open **Actions**, run **Build Paper plugin**, then download the `RexSpielCompanions-PaperMC` artifact. Put the resulting `.jar` in the Aternos `plugins` folder.
 
 > [!Caution]
 Do not connect this bot to public servers with coding enabled. This project allows an LLM to write/execute code on your computer. The code is sandboxed, but still vulnerable to injection attacks. Code writing is disabled by default, you can enable it by setting `allow_insecure_coding` to `true` in `settings.js`. Ye be warned.
