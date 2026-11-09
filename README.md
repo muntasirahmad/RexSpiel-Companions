@@ -14,6 +14,17 @@
   <a href="https://github.com/mindcraft-bots/mindcraft/blob/main/minecollab.md">MineCollab</a>
 </p>
 
+## RexSpiel Companions PaperMC plugin
+
+The `paper-plugin/` directory contains the PaperMC 1.21.8 companion plugin. Build it with Java 21 or newer:
+
+```bash
+cd paper-plugin
+gradle shadowJar
+```
+
+For a downloadable JAR without local build tools, open **Actions**, run **Build Paper plugin**, then download the `RexSpielCompanions-PaperMC` artifact. Put the resulting `*-all.jar` in the Aternos `plugins` folder.
+
 > [!Caution]
 Do not connect this bot to public servers with coding enabled. This project allows an LLM to write/execute code on your computer. The code is sandboxed, but still vulnerable to injection attacks. Code writing is disabled by default, you can enable it by setting `allow_insecure_coding` to `true` in `settings.js`. Ye be warned.
 

@@ -1,0 +1,28 @@
+name: Build Paper plugin
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build plugin
+        working-directory: paper-plugin
+        run: gradle shadowJar --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RexSpielCompanions-PaperMC
+          path: paper-plugin/build/libs/*-all.jar
