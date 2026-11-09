@@ -134,8 +134,10 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
             case "coords" -> player.sendMessage(ChatColor.AQUA + coordinates(player.getLocation()));
             default -> player.sendMessage(ChatColor.YELLOW + "Unknown command.");
         }
+        return true;
+    }
 
-        private boolean economyCommand(CommandSender sender, String[] args) {
+    private boolean economyCommand(CommandSender sender, String[] args) {
             if (args.length > 0 && args[0].equalsIgnoreCase("top")) {
                 if (sender instanceof Player player) showBalanceTop(player);
                 else sender.sendMessage("Use /baltop in-game.");
@@ -155,7 +157,7 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
             return true;
         }
 
-        private boolean adminEconomy(CommandSender sender, String[] args) {
+    private boolean adminEconomy(CommandSender sender, String[] args) {
             if (args.length != 3) { sender.sendMessage("Use /eco give|take|set <player> <amount>"); return true; }
             OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
             double amount = parseAmount(args[2]);
@@ -169,13 +171,10 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
             return true;
         }
 
-        private void showMoney(Player player, String[] args) {
+    private void showMoney(Player player, String[] args) {
             OfflinePlayer target = args.length == 0 ? player : Bukkit.getOfflinePlayer(args[0]);
             player.sendMessage(ChatColor.GOLD + target.getName() + "'s balance: $" + money(economy.balance(target.getUniqueId())));
         }
-        return true;
-    }
-
     private void setHome(Player player, String[] args) {
         String home = args.length == 0 ? "home" : args[0].toLowerCase();
         if (!home.matches("[a-z0-9_-]{1,16}")) { player.sendMessage(ChatColor.RED + "Invalid home name."); return; }
