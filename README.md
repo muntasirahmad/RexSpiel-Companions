@@ -25,6 +25,15 @@ gradle shadowJar
 
 For a downloadable JAR without local build tools, open **Actions**, run **Build Paper plugin**, then download the `RexSpielCompanions-PaperMC` artifact. Put the resulting `.jar` in the Aternos `plugins` folder.
 
+Included SMP utilities:
+
+- `/tpa <player>`, `/tpaccept`, `/tpdeny`
+- `/sethome [name]`, `/home [name]`, `/delhome [name]`
+- `/money`, `/pay <player> <amount>`, `/sell [hand|item] [amount]`
+- `/coords`
+
+Players start with `$100`. Sell prices are generated and saved per item in `plugins/RexSpielCompanions/data.yml`; balances and homes are persistent. The current balance is shown before each player's name using the server scoreboard.
+
 > [!Caution]
 Do not connect this bot to public servers with coding enabled. This project allows an LLM to write/execute code on your computer. The code is sandboxed, but still vulnerable to injection attacks. Code writing is disabled by default, you can enable it by setting `allow_insecure_coding` to `true` in `settings.js`. Ye be warned.
 

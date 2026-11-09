@@ -31,6 +31,12 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 
 public final class RexSpielCompanions extends JavaPlugin implements Listener {
     private final Map<UUID, Power> ownerPowers = new HashMap<>();
@@ -42,21 +48,29 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
     private Power lesserB;
     private String lesserRecipeA;
     private String lesserRecipeB;
+    private EconomyStore economy;
+    private final Map<UUID, UUID> teleportRequests = new HashMap<>();
+    private final Map<UUID, Long> teleportRequestTimes = new HashMap<>();
+    private Scoreboard scoreboard;
 
     @Override public void onEnable() {
         saveDefaultConfig();
+        economy = new EconomyStore(this);
+        scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
         ownerKey = new NamespacedKey(this, "owner");
         specialKey = new NamespacedKey(this, "special-power");
         lesserA = Power.randomLesser();
         do { lesserB = Power.randomLesser(); } while (lesserB.name().equals(lesserA.name()));
         getServer().getPluginManager().registerEvents(this, this);
-        getCommand("rex").setExecutor((sender, command, label, args) -> command(sender, args));
+        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "pay", "sell", "coords"};
+        for (String name : commands) getCommand(name).setExecutor((sender, command, label, args) -> command(sender, command.getName(), args));
         registerSpecialRecipes();
         getServer().getScheduler().runTaskTimer(this, this::tick, 20L, 10L);
     }
 
-    private boolean command(org.bukkit.command.CommandSender sender, String[] args) {
+    private boolean command(CommandSender sender, String name, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Players only."); return true; }
+        if (!name.equalsIgnoreCase("rex")) return utilityCommand(player, name.toLowerCase(), args);
         String sub = args.length == 0 ? "status" : args[0].toLowerCase();
         if (sub.equals("claim") || sub.equals("summon")) { claim(player); return true; }
         if (sub.equals("dismiss")) { dismiss(player); player.sendMessage(ChatColor.YELLOW + "Companions dismissed."); return true; }
@@ -75,11 +89,119 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
     @EventHandler public void join(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         ownerPower(player);
+        updateMoneyTag(player);
         Bukkit.getScheduler().runTaskLater(this, () -> claim(player), 20L);
         player.sendMessage(ChatColor.AQUA + "RexSpiel AI companion granted. Use /rex claim for your second companion.");
     }
 
     @EventHandler public void quit(PlayerQuitEvent event) { dismiss(event.getPlayer()); }
+
+    private boolean utilityCommand(Player player, String name, String[] args) {
+        switch (name) {
+            case "tpa" -> {
+                if (args.length != 1) { player.sendMessage(ChatColor.YELLOW + "Use /tpa <player>"); return true; }
+                Player target = Bukkit.getPlayerExact(args[0]);
+                if (target == null || target.equals(player)) { player.sendMessage(ChatColor.RED + "Player not found."); return true; }
+                teleportRequests.put(target.getUniqueId(), player.getUniqueId());
+                teleportRequestTimes.put(target.getUniqueId(), System.currentTimeMillis());
+                target.sendMessage(ChatColor.AQUA + player.getName() + " requested teleport. Use /tpaccept or /tpdeny.");
+                player.sendMessage(ChatColor.GREEN + "Teleport request sent.");
+            }
+            case "tpaccept", "tpdeny" -> {
+                UUID requesterId = teleportRequests.remove(player.getUniqueId());
+                Long created = teleportRequestTimes.remove(player.getUniqueId());
+                if (requesterId == null || created == null || System.currentTimeMillis() - created > 60_000) {
+                    player.sendMessage(ChatColor.RED + "No active teleport request."); return true;
+                }
+                Player requester = Bukkit.getPlayer(requesterId);
+                if (requester == null) { player.sendMessage(ChatColor.RED + "Requester is offline."); return true; }
+                if (name.equals("tpdeny")) { requester.sendMessage(ChatColor.YELLOW + "Teleport request denied."); player.sendMessage(ChatColor.YELLOW + "Denied."); return true; }
+                Bukkit.getScheduler().runTaskLater(this, () -> {
+                    if (requester.isOnline() && player.isOnline()) requester.teleport(player.getLocation());
+                }, 20L * getConfig().getInt("teleport-delay-seconds", 3));
+                requester.sendMessage(ChatColor.GREEN + "Teleporting to " + player.getName() + "...");
+            }
+            case "sethome" -> setHome(player, args);
+            case "home" -> home(player, args);
+            case "delhome" -> deleteHome(player, args);
+            case "money" -> player.sendMessage(ChatColor.GOLD + "Balance: $" + money(economy.balance(player.getUniqueId())));
+            case "pay" -> pay(player, args);
+            case "sell" -> sell(player, args);
+            case "coords" -> player.sendMessage(ChatColor.AQUA + coordinates(player.getLocation()));
+            default -> player.sendMessage(ChatColor.YELLOW + "Unknown command.");
+        }
+        return true;
+    }
+
+    private void setHome(Player player, String[] args) {
+        String home = args.length == 0 ? "home" : args[0].toLowerCase();
+        if (!home.matches("[a-z0-9_-]{1,16}")) { player.sendMessage(ChatColor.RED + "Invalid home name."); return; }
+        FileConfiguration data = getDataConfig();
+        String base = "homes." + player.getUniqueId() + "." + home;
+        data.set(base + ".world", player.getWorld().getName());
+        data.set(base + ".x", player.getLocation().getX()); data.set(base + ".y", player.getLocation().getY());
+        data.set(base + ".z", player.getLocation().getZ()); data.set(base + ".yaw", player.getLocation().getYaw());
+        data.set(base + ".pitch", player.getLocation().getPitch()); saveData(data);
+        player.sendMessage(ChatColor.GREEN + "Home '" + home + "' set at " + coordinates(player.getLocation()));
+    }
+
+    private void home(Player player, String[] args) {
+        String home = args.length == 0 ? "home" : args[0].toLowerCase();
+        String base = "homes." + player.getUniqueId() + "." + home;
+        FileConfiguration data = getDataConfig();
+        if (!data.contains(base)) { player.sendMessage(ChatColor.RED + "Home not found."); return; }
+        org.bukkit.World world = Bukkit.getWorld(data.getString(base + ".world", ""));
+        if (world == null) { player.sendMessage(ChatColor.RED + "Home world is unavailable."); return; }
+        player.teleport(new Location(world, data.getDouble(base + ".x"), data.getDouble(base + ".y"), data.getDouble(base + ".z"),
+            (float) data.getDouble(base + ".yaw"), (float) data.getDouble(base + ".pitch")));
+    }
+
+    private void deleteHome(Player player, String[] args) {
+        String home = args.length == 0 ? "home" : args[0].toLowerCase();
+        FileConfiguration data = getDataConfig(); data.set("homes." + player.getUniqueId() + "." + home, null); saveData(data);
+        player.sendMessage(ChatColor.YELLOW + "Home deleted.");
+    }
+
+    private void pay(Player player, String[] args) {
+        if (args.length != 2) { player.sendMessage(ChatColor.YELLOW + "Use /pay <player> <amount>"); return; }
+        Player target = Bukkit.getPlayerExact(args[0]); double amount = parseAmount(args[1]);
+        if (target == null || amount <= 0 || target.equals(player)) { player.sendMessage(ChatColor.RED + "Invalid player or amount."); return; }
+        if (!economy.withdraw(player.getUniqueId(), amount)) { player.sendMessage(ChatColor.RED + "Not enough money."); return; }
+        economy.add(target.getUniqueId(), amount); updateMoneyTag(player); updateMoneyTag(target);
+        player.sendMessage(ChatColor.GREEN + "Paid $" + money(amount) + " to " + target.getName() + ".");
+        target.sendMessage(ChatColor.GREEN + "Received $" + money(amount) + " from " + player.getName() + ".");
+    }
+
+    private void sell(Player player, String[] args) {
+        ItemStack stack = player.getInventory().getItemInMainHand();
+        if (args.length > 0 && !args[0].equalsIgnoreCase("hand")) {
+            Material material = Material.matchMaterial(args[0]);
+            if (material == null) { player.sendMessage(ChatColor.RED + "Unknown item."); return; }
+            stack = new ItemStack(material);
+        }
+        if (stack.getType().isAir()) { player.sendMessage(ChatColor.RED + "Hold an item or use /sell <item> <amount>."); return; }
+        int amount = args.length > 1 ? Math.max(1, parseInt(args[1], 1)) : stack.getAmount();
+        int available = player.getInventory().containsAtLeast(stack, amount) ? amount : 0;
+        if (available == 0) { player.sendMessage(ChatColor.RED + "You do not have enough of that item."); return; }
+        player.getInventory().removeItem(new ItemStack(stack.getType(), available));
+        double earned = economy.price(stack.getType()) * available;
+        economy.add(player.getUniqueId(), earned); updateMoneyTag(player);
+        player.sendMessage(ChatColor.GREEN + "Sold " + available + " " + stack.getType().name() + " for $" + money(earned) + ".");
+    }
+
+    private double parseAmount(String value) { try { return Math.round(Double.parseDouble(value) * 100.0) / 100.0; } catch (NumberFormatException e) { return -1; } }
+    private int parseInt(String value, int fallback) { try { return Integer.parseInt(value); } catch (NumberFormatException e) { return fallback; } }
+    private String money(double value) { return String.format(java.util.Locale.US, "%.2f", value); }
+    private String coordinates(Location location) { return location.getWorld().getName() + " " + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ(); }
+    private FileConfiguration getDataConfig() { return YamlConfiguration.loadConfiguration(new java.io.File(getDataFolder(), "data.yml")); }
+    private void saveData(FileConfiguration data) { try { getDataFolder().mkdirs(); data.save(new java.io.File(getDataFolder(), "data.yml")); } catch (java.io.IOException e) { getLogger().warning("Could not save data: " + e.getMessage()); } }
+    private void updateMoneyTag(Player player) {
+        String teamName = "rex_" + Integer.toHexString(player.getUniqueId().hashCode());
+        Team team = scoreboard.getTeam(teamName);
+        if (team == null) team = scoreboard.registerNewTeam(teamName);
+        team.setPrefix(ChatColor.GOLD + "$" + money(economy.balance(player.getUniqueId())) + " " + ChatColor.RESET);
+        if (!team.hasEntry(player.getName())) team.addEntry(player.getName());
+    }
 
     @EventHandler public void ownerDamaged(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player owner)) return;

@@ -9,6 +9,26 @@ commands:
     description: Manage your RexSpiel companion
     usage: /rex <claim|summon|dismiss|power|powers|status>
     aliases: [rexspiel]
+  tpa:
+    description: Request teleport to another player
+  tpaccept:
+    description: Accept a teleport request
+  tpdeny:
+    description: Deny a teleport request
+  sethome:
+    description: Set a home
+  home:
+    description: Teleport to a home
+  delhome:
+    description: Delete a home
+  money:
+    description: View your balance
+  pay:
+    description: Pay another player
+  sell:
+    description: Sell items for money
+  coords:
+    description: Show your coordinates
 permissions:
   rex.admin:
     default: op

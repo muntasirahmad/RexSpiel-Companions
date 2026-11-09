@@ -5,3 +5,8 @@ attack-bosses: true
 owner-passive-power: true
 max-distance: 32
 max-companions-per-player: 2
+starting-money: 100.0
+teleport-delay-seconds: 3
+max-homes-per-player: 3
+sell-price-min: 1
+sell-price-max: 50
