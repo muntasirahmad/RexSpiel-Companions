@@ -1,0 +1,7 @@
+companion-name: RexSpiel AI
+protect-owner: true
+attack-hostiles: true
+attack-bosses: true
+owner-passive-power: true
+max-distance: 32
+max-companions-per-player: 2

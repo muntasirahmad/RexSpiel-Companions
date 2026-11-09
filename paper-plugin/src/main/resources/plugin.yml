@@ -1,0 +1,14 @@
+name: RexSpielCompanions
+version: '${version}'
+main: ai.rexspiel.companions.RexSpielCompanions
+api-version: '1.21'
+author: RexSpiel AI
+description: PaperMC per-player combat companions with 50 randomized powers.
+commands:
+  rex:
+    description: Manage your RexSpiel companion
+    usage: /rex <claim|summon|dismiss|power|powers|status>
+    aliases: [rexspiel]
+permissions:
+  rex.admin:
+    default: op

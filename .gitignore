@@ -1,0 +1,3 @@
+paper-plugin/.gradle/
+paper-plugin/build/
+*.jar
