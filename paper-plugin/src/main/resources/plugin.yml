@@ -23,6 +23,12 @@ commands:
     description: Delete a home
   money:
     description: View your balance
+    aliases: [balance, bal]
+  check:
+    description: Check a player balance
+    aliases: [checkbalance]
+  baltop:
+    description: Show the richest players
   pay:
     description: Pay another player
   sell:

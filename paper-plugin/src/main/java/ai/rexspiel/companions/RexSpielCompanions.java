@@ -16,6 +16,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Wolf;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -62,7 +63,7 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
         lesserA = Power.randomLesser();
         do { lesserB = Power.randomLesser(); } while (lesserB.name().equals(lesserA.name()));
         getServer().getPluginManager().registerEvents(this, this);
-        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "pay", "sell", "coords"};
+        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "check", "baltop", "pay", "sell", "coords"};
         for (String name : commands) getCommand(name).setExecutor((sender, command, label, args) -> command(sender, command.getName(), args));
         registerSpecialRecipes();
         getServer().getScheduler().runTaskTimer(this, this::tick, 20L, 10L);
@@ -125,6 +126,8 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
             case "home" -> home(player, args);
             case "delhome" -> deleteHome(player, args);
             case "money" -> player.sendMessage(ChatColor.GOLD + "Balance: $" + money(economy.balance(player.getUniqueId())));
+            case "check" -> checkBalance(player, args);
+            case "baltop" -> showBalanceTop(player);
             case "pay" -> pay(player, args);
             case "sell" -> sell(player, args);
             case "coords" -> player.sendMessage(ChatColor.AQUA + coordinates(player.getLocation()));
@@ -170,6 +173,30 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
         economy.add(target.getUniqueId(), amount); updateMoneyTag(player); updateMoneyTag(target);
         player.sendMessage(ChatColor.GREEN + "Paid $" + money(amount) + " to " + target.getName() + ".");
         target.sendMessage(ChatColor.GREEN + "Received $" + money(amount) + " from " + player.getName() + ".");
+    }
+
+    private void checkBalance(Player player, String[] args) {
+        Player target = args.length == 0 || (args.length == 1 && args[0].equalsIgnoreCase("balance"))
+            ? player
+            : Bukkit.getPlayerExact(args[args.length - 1]);
+        if (target == null) {
+            player.sendMessage(ChatColor.RED + "Player not found.");
+            return;
+        }
+        player.sendMessage(ChatColor.GOLD + target.getName() + "'s balance: $" + money(economy.balance(target.getUniqueId())));
+    }
+
+    private void showBalanceTop(Player player) {
+        List<Map.Entry<UUID, Double>> top = new ArrayList<>(economy.balances().entrySet());
+        top.sort((left, right) -> Double.compare(right.getValue(), left.getValue()));
+        player.sendMessage(ChatColor.GOLD + "---- Balance Top ----");
+        int rank = 1;
+        for (Map.Entry<UUID, Double> entry : top) {
+            if (rank > 10) break;
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(entry.getKey());
+            player.sendMessage(ChatColor.YELLOW + "#" + rank++ + " " + offline.getName() + ": $" + money(entry.getValue()));
+        }
+        if (top.isEmpty()) player.sendMessage(ChatColor.GRAY + "No balances recorded yet.");
     }
 
     private void sell(Player player, String[] args) {

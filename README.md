@@ -30,6 +30,7 @@ Included SMP utilities:
 - `/tpa <player>`, `/tpaccept`, `/tpdeny`
 - `/sethome [name]`, `/home [name]`, `/delhome [name]`
 - `/money`, `/pay <player> <amount>`, `/sell [hand|item] [amount]`
+- `/check balance [player]`, `/balance`, `/bal`, `/baltop`
 - `/coords`
 
 Players start with `$100`. Sell prices are generated and saved per item in `plugins/RexSpielCompanions/data.yml`; balances and homes are persistent. The current balance is shown before each player's name using the server scoreboard.

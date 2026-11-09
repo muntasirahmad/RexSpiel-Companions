@@ -63,6 +63,16 @@ public final class EconomyStore {
         return prices.get(material);
     }
 
+    public Map<UUID, Double> balances() {
+        Map<UUID, Double> result = new HashMap<>();
+        if (data.getConfigurationSection("balances") == null) return result;
+        for (String key : data.getConfigurationSection("balances").getKeys(false)) {
+            try { result.put(UUID.fromString(key), data.getDouble("balances." + key)); }
+            catch (IllegalArgumentException ignored) { }
+        }
+        return result;
+    }
+
     public void save() {
         try {
             file.getParentFile().mkdirs();
