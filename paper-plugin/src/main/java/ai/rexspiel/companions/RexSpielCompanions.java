@@ -228,14 +228,14 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
         recipe.setIngredient('D', ingredients[3]);
         recipe.setIngredient('E', ingredients[4]);
         Bukkit.addRecipe(recipe);
-        String recipe = ingredients[0] + "+" + ingredients[1] + "+" + ingredients[2] + "+" +
+        String recipeText = ingredients[0] + "+" + ingredients[1] + "+" + ingredients[2] + "+" +
             ingredients[3] + "+" + ingredients[4];
-        if (key.equals("rex_lesser_b") && recipe.equals(lesserRecipeA)) {
+        if (key.equals("rex_lesser_b") && recipeText.equals(lesserRecipeA)) {
             registerRandomRecipe(key, power);
             return;
         }
-        if (key.equals("rex_lesser_a")) lesserRecipeA = recipe;
-        else lesserRecipeB = recipe;
+        if (key.equals("rex_lesser_a")) lesserRecipeA = recipeText;
+        else lesserRecipeB = recipeText;
         getLogger().info(key + " recipe power: " + power.aiName() + " | " +
             ingredients[0] + ", " + ingredients[1] + ", " + ingredients[2] + ", " +
             ingredients[3] + ", " + ingredients[4]);
