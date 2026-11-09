@@ -16,6 +16,8 @@ public final class EconomyStore {
     private final File file;
     private final FileConfiguration data;
     private final Map<Material, Double> prices = new HashMap<>();
+    private final Map<Material, double[]> sellRanges = new HashMap<>();
+    private final Map<Material, double[]> buyRanges = new HashMap<>();
     private final double startingMoney;
 
     public EconomyStore(JavaPlugin plugin) {
@@ -24,6 +26,41 @@ public final class EconomyStore {
         file = new File(plugin.getDataFolder(), "data.yml");
         data = YamlConfiguration.loadConfiguration(file);
         loadPrices();
+        registerDefaultRanges();
+    }
+
+    private void registerDefaultRanges() {
+        range(Material.COBBLESTONE, 0.1, 0.5, 1, 2);
+        range(Material.STONE, 0.1, 0.5, 1, 2);
+        range(Material.COAL, 1, 2, 5, 5);
+        range(Material.IRON_INGOT, 5, 8, 15, 20);
+        range(Material.GOLD_INGOT, 10, 15, 30, 40);
+        range(Material.DIAMOND, 40, 70, 100, 200);
+        range(Material.EMERALD, 50, 80, 150, 250);
+        range(Material.NETHERITE_INGOT, 400, 800, 1000, 2500);
+        range(Material.WHEAT, 1, 2, 3, 5);
+        range(Material.CARROT, 1, 2, 3, 5);
+        range(Material.POTATO, 1, 2, 3, 5);
+        range(Material.SUGAR_CANE, 2, 4, 5, 10);
+        range(Material.BAMBOO, 2, 4, 5, 10);
+        range(Material.PUMPKIN, 3, 6, 10, 15);
+        range(Material.MELON, 3, 6, 10, 15);
+        range(Material.NETHER_WART, 7, 10, 20, 20);
+        range(Material.ROTTEN_FLESH, 1, 3, 5, 10);
+        range(Material.BONE, 1, 3, 5, 10);
+        range(Material.STRING, 1, 3, 5, 10);
+        range(Material.GUNPOWDER, 8, 12, 25, 40);
+        range(Material.ENDER_PEARL, 15, 30, 50, 100);
+        range(Material.BLAZE_ROD, 35, 50, 100, 150);
+        range(Material.GOLDEN_APPLE, 50, 100, 200, 500);
+        range(Material.ENCHANTED_GOLDEN_APPLE, 1000, 3000, 5000, 15000);
+        range(Material.TOTEM_OF_UNDYING, 500, 1500, 2500, 5000);
+        range(Material.SPAWNER, 0, 0, 10000, 25000);
+    }
+
+    private void range(Material material, double sellMin, double sellMax, double buyMin, double buyMax) {
+        sellRanges.put(material, new double[] {sellMin, sellMax});
+        buyRanges.put(material, new double[] {buyMin, buyMax});
     }
 
     private void loadPrices() {
@@ -56,11 +93,32 @@ public final class EconomyStore {
 
     public double price(Material material) {
         if (!prices.containsKey(material)) {
-            prices.put(material, (double) ThreadLocalRandom.current().nextInt(1, 51));
+            double[] range = sellRanges.getOrDefault(material, new double[] {
+                getConfigPrice("sell-price-min", 1), getConfigPrice("sell-price-max", 50)
+            });
+            prices.put(material, randomPrice(range[0], range[1]));
             data.set("prices." + material.name(), prices.get(material));
             save();
         }
         return prices.get(material);
+    }
+
+    public double buyPrice(Material material) {
+        double[] range = buyRanges.get(material);
+        return range == null ? -1 : randomPrice(range[0], range[1]);
+    }
+
+    public boolean isSellable(Material material) {
+        return sellRanges.containsKey(material);
+    }
+
+    private double randomPrice(double min, double max) {
+        if (min == max) return min;
+        return Math.round((min + ThreadLocalRandom.current().nextDouble() * (max - min)) * 100.0) / 100.0;
+    }
+
+    private double getConfigPrice(String key, double fallback) {
+        return plugin.getConfig().getDouble(key, fallback);
     }
 
     public Map<UUID, Double> balances() {

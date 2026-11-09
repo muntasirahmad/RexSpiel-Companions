@@ -24,8 +24,10 @@ import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -53,6 +55,7 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
     private final Map<UUID, UUID> teleportRequests = new HashMap<>();
     private final Map<UUID, Long> teleportRequestTimes = new HashMap<>();
     private Scoreboard scoreboard;
+    private static final String SELL_GUI_TITLE = ChatColor.DARK_GREEN + "Sell Items";
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -63,7 +66,7 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
         lesserA = Power.randomLesser();
         do { lesserB = Power.randomLesser(); } while (lesserB.name().equals(lesserA.name()));
         getServer().getPluginManager().registerEvents(this, this);
-        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "check", "baltop", "economy", "pay", "sell", "coords"};
+        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "check", "baltop", "economy", "pay", "sell", "sellgui", "worth", "buy", "coords"};
         for (String name : commands) getCommand(name).setExecutor((sender, command, label, args) -> command(sender, command.getName(), args));
         registerSpecialRecipes();
         getServer().getScheduler().runTaskTimer(this, this::tick, 20L, 10L);
@@ -131,6 +134,9 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
             case "baltop" -> showBalanceTop(player);
             case "pay" -> pay(player, args);
             case "sell" -> sell(player, args);
+            case "sellgui" -> openSellGui(player);
+            case "worth" -> worth(player);
+            case "buy" -> buy(player, args);
             case "coords" -> player.sendMessage(ChatColor.AQUA + coordinates(player.getLocation()));
             default -> player.sendMessage(ChatColor.YELLOW + "Unknown command.");
         }
@@ -239,13 +245,17 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
     }
 
     private void sell(Player player, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("all")) {
+            sellAll(player);
+            return;
+        }
         ItemStack stack = player.getInventory().getItemInMainHand();
         if (args.length > 0 && !args[0].equalsIgnoreCase("hand")) {
             Material material = Material.matchMaterial(args[0]);
             if (material == null) { player.sendMessage(ChatColor.RED + "Unknown item."); return; }
             stack = new ItemStack(material);
         }
-        if (stack.getType().isAir()) { player.sendMessage(ChatColor.RED + "Hold an item or use /sell <item> <amount>."); return; }
+        if (stack.getType().isAir() || !economy.isSellable(stack.getType())) { player.sendMessage(ChatColor.RED + "This item cannot be sold."); return; }
         int amount = args.length > 1 ? Math.max(1, parseInt(args[1], 1)) : stack.getAmount();
         int available = player.getInventory().containsAtLeast(stack, amount) ? amount : 0;
         if (available == 0) { player.sendMessage(ChatColor.RED + "You do not have enough of that item."); return; }
@@ -253,6 +263,84 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
         double earned = economy.price(stack.getType()) * available;
         economy.add(player.getUniqueId(), earned); updateMoneyTag(player);
         player.sendMessage(ChatColor.GREEN + "Sold " + available + " " + stack.getType().name() + " for $" + money(earned) + ".");
+    }
+
+    private void sellAll(Player player) {
+        double earned = 0;
+        int sold = 0;
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack == null || stack.getType().isAir() || !economy.isSellable(stack.getType())) continue;
+            int amount = stack.getAmount();
+            earned += economy.price(stack.getType()) * amount;
+            sold += amount;
+            player.getInventory().setItem(slot, null);
+        }
+        if (sold == 0) { player.sendMessage(ChatColor.YELLOW + "No sellable items found."); return; }
+        economy.add(player.getUniqueId(), earned);
+        updateMoneyTag(player);
+        player.sendMessage(ChatColor.GREEN + "Sold " + sold + " items for $" + money(earned) + ".");
+    }
+
+    private void worth(Player player) {
+        ItemStack stack = player.getInventory().getItemInMainHand();
+        if (stack.getType().isAir() || !economy.isSellable(stack.getType())) {
+            player.sendMessage(ChatColor.RED + "This item cannot be sold.");
+            return;
+        }
+        player.sendMessage(ChatColor.GOLD + stack.getType().name() + " sells for $" + money(economy.price(stack.getType())) + " each.");
+    }
+
+    private void openSellGui(Player player) {
+        player.openInventory(Bukkit.createInventory(null, 27, SELL_GUI_TITLE));
+        player.sendMessage(ChatColor.GREEN + "Put items in the chest, then close it to sell them.");
+    }
+
+    private void buy(Player player, String[] args) {
+        if (args.length < 1 || args.length > 2) {
+            player.sendMessage(ChatColor.YELLOW + "Use /buy <item> [amount]");
+            return;
+        }
+        Material material = Material.matchMaterial(args[0]);
+        int amount = args.length == 2 ? parseInt(args[1], 0) : 1;
+        double unitPrice = material == null ? -1 : economy.buyPrice(material);
+        if (material == null || amount < 1 || unitPrice < 0) {
+            player.sendMessage(ChatColor.RED + "That item is not available to buy.");
+            return;
+        }
+        double total = unitPrice * amount;
+        if (!economy.withdraw(player.getUniqueId(), total)) {
+            player.sendMessage(ChatColor.RED + "Not enough money.");
+            return;
+        }
+        Map<Integer, ItemStack> leftover = player.getInventory().addItem(new ItemStack(material, amount));
+        int delivered = amount;
+        for (ItemStack item : leftover.values()) delivered -= item.getAmount();
+        if (delivered < amount) economy.add(player.getUniqueId(), unitPrice * (amount - delivered));
+        updateMoneyTag(player);
+        player.sendMessage(ChatColor.GREEN + "Bought " + delivered + " " + material.name() + " for $" + money(unitPrice * delivered) + ".");
+    }
+
+    @EventHandler public void sellGuiClose(InventoryCloseEvent event) {
+        if (!event.getView().getTitle().equals(SELL_GUI_TITLE) || !(event.getPlayer() instanceof Player player)) return;
+        Inventory inventory = event.getInventory();
+        double earned = 0;
+        int sold = 0;
+        for (ItemStack stack : inventory.getContents()) {
+            if (stack == null || stack.getType().isAir()) continue;
+            if (!economy.isSellable(stack.getType())) {
+                player.getInventory().addItem(stack);
+                continue;
+            }
+            sold += stack.getAmount();
+            earned += economy.price(stack.getType()) * stack.getAmount();
+        }
+        inventory.clear();
+        if (sold > 0) {
+            economy.add(player.getUniqueId(), earned);
+            updateMoneyTag(player);
+            player.sendMessage(ChatColor.GREEN + "Sold " + sold + " items for $" + money(earned) + ".");
+        }
     }
 
     private double parseAmount(String value) { try { return Math.round(Double.parseDouble(value) * 100.0) / 100.0; } catch (NumberFormatException e) { return -1; } }

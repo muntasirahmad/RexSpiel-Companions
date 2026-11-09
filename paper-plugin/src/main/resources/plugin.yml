@@ -36,6 +36,12 @@ commands:
     description: Pay another player
   sell:
     description: Sell items for money
+  sellgui:
+    description: Sell multiple items through a chest menu
+  worth:
+    description: Check the selling price of the item in hand
+  buy:
+    description: Buy configured items
   coords:
     description: Show your coordinates
 permissions:

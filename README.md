@@ -29,10 +29,13 @@ Included SMP utilities:
 
 - `/tpa <player>`, `/tpaccept`, `/tpdeny`
 - `/sethome [name]`, `/home [name]`, `/delhome [name]`
-- `/money`, `/pay <player> <amount>`, `/sell [hand|item] [amount]`
+- `/money`, `/pay <player> <amount>`, `/sell hand`, `/sell all`, `/sellgui`, `/worth`
+- `/buy <item> [amount]` buys items with configured shop prices.
 - `/money [player]`, `/balance`, `/bal`
 - `/check balance [player]`, `/baltop`, `/economy top`
 - Admin: `/eco give|take|set <player> <amount>` (alias `/economy`; requires `rex.admin`)
+
+The shop includes configured mineral, crop, mob-drop, and valuable-item buy/sell ranges. Prices are randomized within their range and sell prices persist after first use. Spawners can be bought but cannot be sold.
 - `/coords`
 
 Players start with `$100`. Sell prices are generated and saved per item in `plugins/RexSpielCompanions/data.yml`; balances and homes are persistent. The current balance is shown before each player's name using the server scoreboard.
