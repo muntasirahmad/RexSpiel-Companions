@@ -24,6 +24,9 @@ commands:
   money:
     description: View your balance
     aliases: [balance, bal]
+  economy:
+    description: Economy commands
+    aliases: [eco]
   check:
     description: Check a player balance
     aliases: [checkbalance]

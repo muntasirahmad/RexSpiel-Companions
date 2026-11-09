@@ -63,13 +63,14 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
         lesserA = Power.randomLesser();
         do { lesserB = Power.randomLesser(); } while (lesserB.name().equals(lesserA.name()));
         getServer().getPluginManager().registerEvents(this, this);
-        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "check", "baltop", "pay", "sell", "coords"};
+        String[] commands = {"rex", "tpa", "tpaccept", "tpdeny", "sethome", "home", "delhome", "money", "check", "baltop", "economy", "pay", "sell", "coords"};
         for (String name : commands) getCommand(name).setExecutor((sender, command, label, args) -> command(sender, command.getName(), args));
         registerSpecialRecipes();
         getServer().getScheduler().runTaskTimer(this, this::tick, 20L, 10L);
     }
 
     private boolean command(CommandSender sender, String name, String[] args) {
+        if (name.equalsIgnoreCase("economy")) return economyCommand(sender, args);
         if (!(sender instanceof Player player)) { sender.sendMessage("Players only."); return true; }
         if (!name.equalsIgnoreCase("rex")) return utilityCommand(player, name.toLowerCase(), args);
         String sub = args.length == 0 ? "status" : args[0].toLowerCase();
@@ -125,13 +126,52 @@ public final class RexSpielCompanions extends JavaPlugin implements Listener {
             case "sethome" -> setHome(player, args);
             case "home" -> home(player, args);
             case "delhome" -> deleteHome(player, args);
-            case "money" -> player.sendMessage(ChatColor.GOLD + "Balance: $" + money(economy.balance(player.getUniqueId())));
+            case "money" -> showMoney(player, args);
             case "check" -> checkBalance(player, args);
             case "baltop" -> showBalanceTop(player);
             case "pay" -> pay(player, args);
             case "sell" -> sell(player, args);
             case "coords" -> player.sendMessage(ChatColor.AQUA + coordinates(player.getLocation()));
             default -> player.sendMessage(ChatColor.YELLOW + "Unknown command.");
+        }
+
+        private boolean economyCommand(CommandSender sender, String[] args) {
+            if (args.length > 0 && args[0].equalsIgnoreCase("top")) {
+                if (sender instanceof Player player) showBalanceTop(player);
+                else sender.sendMessage("Use /baltop in-game.");
+                return true;
+            }
+            if (!(sender instanceof Player player)) {
+                if (!sender.hasPermission("rex.admin")) { sender.sendMessage("You need rex.admin."); return true; }
+                return adminEconomy(sender, args);
+            }
+            if (args.length == 0) { showMoney(player, new String[0]); return true; }
+            if (args[0].equalsIgnoreCase("balance")) { showMoney(player, java.util.Arrays.copyOfRange(args, 1, args.length)); return true; }
+            if (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("set")) {
+                if (!player.hasPermission("rex.admin")) { player.sendMessage(ChatColor.RED + "You need rex.admin."); return true; }
+                return adminEconomy(player, args);
+            }
+            player.sendMessage(ChatColor.YELLOW + "Use /economy top, /economy balance, or /eco give|take|set <player> <amount>.");
+            return true;
+        }
+
+        private boolean adminEconomy(CommandSender sender, String[] args) {
+            if (args.length != 3) { sender.sendMessage("Use /eco give|take|set <player> <amount>"); return true; }
+            OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+            double amount = parseAmount(args[2]);
+            if (amount < 0) { sender.sendMessage("Amount must be non-negative."); return true; }
+            double current = economy.balance(target.getUniqueId());
+            double next = args[0].equalsIgnoreCase("give") ? current + amount
+                : args[0].equalsIgnoreCase("take") ? Math.max(0, current - amount) : amount;
+            economy.set(target.getUniqueId(), next);
+            if (target.isOnline()) updateMoneyTag(target.getPlayer());
+            sender.sendMessage(ChatColor.GREEN + "Updated " + target.getName() + " balance to $" + money(next) + ".");
+            return true;
+        }
+
+        private void showMoney(Player player, String[] args) {
+            OfflinePlayer target = args.length == 0 ? player : Bukkit.getOfflinePlayer(args[0]);
+            player.sendMessage(ChatColor.GOLD + target.getName() + "'s balance: $" + money(economy.balance(target.getUniqueId())));
         }
         return true;
     }
